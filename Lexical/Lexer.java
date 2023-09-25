@@ -1,14 +1,14 @@
 package Lexical;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 
 public class Lexer {
     private final String source;
     private int curPos;
     private StringBuilder token;
     private int lineNum;
-    private LinkedList<Node> list;
+    private ArrayList<Node> list;
     private final HashMap<String, LexType> reserveWords = new HashMap<String, LexType>() {{
             put("main", LexType.MAINTK);
             put("const", LexType.CONSTTK);
@@ -48,7 +48,7 @@ public class Lexer {
         this.curPos = 0;
         this.token = new StringBuilder();
         this.lineNum = 1;
-        this.list = new LinkedList<>();
+        this.list = new ArrayList<>();
         generateLexical();
     }
 
@@ -258,7 +258,7 @@ public class Lexer {
                 || word == '&' || word == '|' || word == '!');
     }
 
-    public LinkedList<Node> getList() {
+    public ArrayList<Node> getList() {
         return this.list;
     }
 }

@@ -1,7 +1,5 @@
 package Lexical;
 
-import Lexical.LexType;
-
 public class Node {
     private String content;
     private LexType type;

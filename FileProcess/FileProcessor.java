@@ -5,7 +5,7 @@ import Lexical.Node;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class FileProcessor {
@@ -38,7 +38,7 @@ public class FileProcessor {
         return source;
     }
 
-    public void generateOutput(LinkedList<Node> nodes) throws IOException {
+    public void generateOutput(ArrayList<Node> nodes) throws IOException {
         for (Node node : nodes) {
             fileWriter.append(node.getType().toString());
             fileWriter.append(" ");
