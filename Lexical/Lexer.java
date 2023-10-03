@@ -8,7 +8,7 @@ public class Lexer {
     private int curPos;
     private StringBuilder token;
     private int lineNum;
-    private ArrayList<Node> list;
+    private ArrayList<tokenNode> list;
     private final HashMap<String, LexType> reserveWords = new HashMap<String, LexType>() {{
             put("main", LexType.MAINTK);
             put("const", LexType.CONSTTK);
@@ -83,7 +83,7 @@ public class Lexer {
                     c = getChar();
                 } while (Character.isDigit(c));
                 ungetChar();
-                list.add(new Node(token.toString(), LexType.INTCON, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.INTCON, lineNum));
             } else if (Character.isLetter(c) || c == '_') {
                 do {
                     token.append(c);
@@ -91,18 +91,18 @@ public class Lexer {
                 } while (Character.isDigit(c) || Character.isLetter(c) || c == '_');
                 ungetChar();
                 if (isReserveWord(token.toString())) {
-                    list.add(new Node(token.toString(), getReservedWordLexType(token.toString()), lineNum));
+                    list.add(new tokenNode(token.toString(), getReservedWordLexType(token.toString()), lineNum));
                 } else {
-                    list.add(new Node(token.toString(), LexType.IDENFR, lineNum));
+                    list.add(new tokenNode(token.toString(), LexType.IDENFR, lineNum));
                 }
             } else if (isOperation(c.toString())) {
-                list.add(new Node(c.toString(), getOperationsLexType(c.toString()), lineNum));
+                list.add(new tokenNode(c.toString(), getOperationsLexType(c.toString()), lineNum));
             } else if (isBracket(c.toString())) {
-                list.add(new Node(c.toString(), getBracketLexType(c.toString()), lineNum));
+                list.add(new tokenNode(c.toString(), getBracketLexType(c.toString()), lineNum));
             } else if (c == ';') {
-                list.add(new Node(c.toString(), LexType.SEMICN, lineNum));
+                list.add(new tokenNode(c.toString(), LexType.SEMICN, lineNum));
             } else if (c == ',') {
-                list.add(new Node(c.toString(), LexType.COMMA, lineNum));
+                list.add(new tokenNode(c.toString(), LexType.COMMA, lineNum));
             } else if (isRelation(c)) {
                 processRelation(c);
             } else if (c == '/') {
@@ -119,46 +119,46 @@ public class Lexer {
             Character next = getChar();
             if (next == '=') {
                 token.append(next);
-                list.add(new Node(token.toString(), LexType.EQL, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.EQL, lineNum));
             } else {
                 ungetChar();
-                list.add(new Node(token.toString(), LexType.ASSIGN, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.ASSIGN, lineNum));
             }
         } else if (c == '>') {
             Character next = getChar();
             if (next == '=') {
                 token.append(next);
-                list.add(new Node(token.toString(), LexType.GEQ, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.GEQ, lineNum));
             } else {
                 ungetChar();
-                list.add(new Node(token.toString(), LexType.GRE, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.GRE, lineNum));
             }
         } else if (c == '<') {
             Character next = getChar();
             if (next == '=') {
                 token.append(next);
-                list.add(new Node(token.toString(), LexType.LEQ, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.LEQ, lineNum));
             } else {
                 ungetChar();
-                list.add(new Node(token.toString(), LexType.LSS, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.LSS, lineNum));
             }
         } else if (c == '!') {
             Character next = getChar();
             if (next == '=') {
                 token.append(next);
-                list.add(new Node(token.toString(), LexType.NEQ, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.NEQ, lineNum));
             } else {
                 ungetChar();
-                list.add(new Node(token.toString(), LexType.NOT, lineNum));
+                list.add(new tokenNode(token.toString(), LexType.NOT, lineNum));
             }
         } else if (c == '|') {
             Character next = getChar();
             token.append(next);
-            list.add(new Node(token.toString(), LexType.OR, lineNum));
+            list.add(new tokenNode(token.toString(), LexType.OR, lineNum));
         } else if (c == '&') {
             Character next = getChar();
             token.append(next);
-            list.add(new Node(token.toString(), LexType.AND, lineNum));
+            list.add(new tokenNode(token.toString(), LexType.AND, lineNum));
         }
     }
 
@@ -181,7 +181,7 @@ public class Lexer {
             } while (true);
         } else {
             ungetChar();
-            list.add(new Node(token.toString(), LexType.DIV, lineNum));
+            list.add(new tokenNode(token.toString(), LexType.DIV, lineNum));
         }
     }
 
@@ -192,7 +192,7 @@ public class Lexer {
             next = getChar();
             token.append(next);
         } while (next != '\"');
-        list.add(new Node(token.toString(), LexType.STRCON, lineNum));
+        list.add(new tokenNode(token.toString(), LexType.STRCON, lineNum));
     }
 
     public void clearToken() {
@@ -258,7 +258,7 @@ public class Lexer {
                 || word == '&' || word == '|' || word == '!');
     }
 
-    public ArrayList<Node> getList() {
+    public ArrayList<tokenNode> getList() {
         return this.list;
     }
 }

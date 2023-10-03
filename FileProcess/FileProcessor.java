@@ -1,6 +1,7 @@
 package FileProcess;
 
-import Lexical.Node;
+import Grammar.GrammarNode.NonTerminate.CompUnit;
+import Lexical.tokenNode;
 
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -38,8 +39,12 @@ public class FileProcessor {
         return source;
     }
 
-    public void generateOutput(ArrayList<Node> nodes) throws IOException {
-        for (Node node : nodes) {
+    public FileWriter getFileWriter() {
+        return fileWriter;
+    }
+
+    public void generateLexerOutput(ArrayList<tokenNode> nodes) throws IOException {
+        for (tokenNode node : nodes) {
             fileWriter.append(node.getType().toString());
             fileWriter.append(" ");
             fileWriter.append(node.getContent());
@@ -49,6 +54,12 @@ public class FileProcessor {
             //fileWriter.append(String.valueOf(node.getNum()));
             fileWriter.append("\n");
         }
+        fileWriter.flush();
+        fileWriter.close();
+    }
+
+    public void generateParserOutput(CompUnit root) throws IOException {
+        root.print(fileWriter);
         fileWriter.flush();
         fileWriter.close();
     }

@@ -1,12 +1,17 @@
 package Lexical;
 
-public class Node {
+import Grammar.GrammarNode.ASTNode;
+
+import java.io.FileWriter;
+import java.io.IOException;
+
+public class tokenNode implements ASTNode {
     private String content;
     private LexType type;
     private int lineNum;
     private Integer num;
 
-    public Node(String content, LexType type, int lineNum) {
+    public tokenNode(String content, LexType type, int lineNum) {
         this.content = content;
         this.type = type;
         this.lineNum = lineNum;
@@ -31,5 +36,12 @@ public class Node {
 
     public Integer getNum() {
         return this.num;
+    }
+
+    public void print(FileWriter fileWriter) throws IOException {
+        fileWriter.append(type.toString());
+        fileWriter.append(" ");
+        fileWriter.append(content);
+        fileWriter.append("\n");
     }
 }
