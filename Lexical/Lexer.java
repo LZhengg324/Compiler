@@ -176,6 +176,8 @@ public class Lexer {
                     next = getChar();
                     if (next == '/') {
                         break;
+                    } else {
+                        ungetChar();
                     }
                 }
             } while (true);
