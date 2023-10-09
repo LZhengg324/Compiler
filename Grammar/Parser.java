@@ -521,7 +521,7 @@ public class Parser {
         RelExp relExp = new RelExp();
         relExp.addChild(parseAddExp());
 
-        if (curToken.getType().compareTo(LexType.GRE) == 0
+        while (curToken.getType().compareTo(LexType.GRE) == 0
                 || curToken.getType().compareTo(LexType.GEQ) == 0
                 || curToken.getType().compareTo(LexType.LSS) == 0
                 || curToken.getType().compareTo(LexType.LEQ) == 0) {
@@ -537,7 +537,7 @@ public class Parser {
         EqExp eqExp = new EqExp();
         eqExp.addChild(parseRelExp());
 
-        if (curToken.getType().compareTo(LexType.EQL) == 0
+        while (curToken.getType().compareTo(LexType.EQL) == 0
                 || curToken.getType().compareTo(LexType.NEQ) == 0) {
             eqExp.addChild(setLeafNode());  //'==' | '!='
             eqExp.addChild(parseRelExp());
