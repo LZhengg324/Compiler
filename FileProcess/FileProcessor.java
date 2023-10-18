@@ -1,5 +1,7 @@
 package FileProcess;
 
+import ErrorHandling.Error;
+import ErrorHandling.ErrorHandler;
 import Grammar.GrammarNode.NonTerminate.CompUnit;
 import Lexical.tokenNode;
 
@@ -10,15 +12,18 @@ import java.util.ArrayList;
 import java.util.Scanner;
 
 public class FileProcessor {
-    private FileReader fileReader;
-    private FileWriter fileWriter;
+    private final FileReader fileReader;
+    private final FileWriter parserFileWriter;
+    private final FileWriter errorsFileWriter;
     private final String fileName = "testfile.txt";
     private final String outputName = "output.txt";
+    private final String errorName = "error.txt";
     private final String source;
 
     public FileProcessor() throws IOException {
         this.fileReader = new FileReader(fileName);
-        this.fileWriter = new FileWriter(outputName);
+        this.parserFileWriter = new FileWriter(outputName);
+        this.errorsFileWriter = new FileWriter(errorName);
         source = generateSource();
     }
 
@@ -39,28 +44,39 @@ public class FileProcessor {
         return source;
     }
 
-    public FileWriter getFileWriter() {
-        return fileWriter;
+    public FileWriter getParserFileWriter() {
+        return parserFileWriter;
     }
 
     public void generateLexerOutput(ArrayList<tokenNode> nodes) throws IOException {
         for (tokenNode node : nodes) {
-            fileWriter.append(node.getType().toString());
-            fileWriter.append(" ");
-            fileWriter.append(node.getContent());
+            parserFileWriter.append(node.getLexType().toString());
+            parserFileWriter.append(" ");
+            parserFileWriter.append(node.getContent());
             //fileWriter.append(" ");
             //fileWriter.append(String.valueOf(node.getLineNum()));
             //fileWriter.append(" ");
             //fileWriter.append(String.valueOf(node.getNum()));
-            fileWriter.append("\n");
+            parserFileWriter.append("\n");
         }
-        fileWriter.flush();
-        fileWriter.close();
+        parserFileWriter.flush();
+        parserFileWriter.close();
     }
 
     public void generateParserOutput(CompUnit root) throws IOException {
-        root.print(fileWriter);
-        fileWriter.flush();
-        fileWriter.close();
+        root.print(parserFileWriter);
+        parserFileWriter.flush();
+        parserFileWriter.close();
+    }
+
+    public void generateErrorOutput() throws IOException {
+        for (Error error : ErrorHandler.getList()) {
+            errorsFileWriter.append(String.valueOf(error.getLineNum()));
+            errorsFileWriter.append(" ");
+            errorsFileWriter.append(error.getErrorType().toString());
+            errorsFileWriter.append("\n");
+        }
+        errorsFileWriter.flush();
+        errorsFileWriter.close();
     }
 }

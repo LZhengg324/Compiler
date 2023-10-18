@@ -2,6 +2,7 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
+import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -23,5 +24,14 @@ public class Exp extends NonTerminalNode {
             iterator.next().print(fileWriter);
         }
         fileWriter.append("<Exp>\n");
+    }
+
+    public Integer getParamType() {
+        for (ASTNode node : getChildNodes()) {
+            if (node instanceof AddExp) {
+                return ((AddExp)node).getParamType();
+            }
+        }
+        return -1;
     }
 }

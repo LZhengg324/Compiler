@@ -2,6 +2,7 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
+import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -26,5 +27,14 @@ public class MulExp extends NonTerminalNode {
             iterator.next().print(fileWriter);
             fileWriter.append("<MulExp>\n");
         }
+    }
+
+    public Integer getParamType() {
+        for (ASTNode node : getChildNodes()) {
+            if (node instanceof UnaryExp) {
+                return ((UnaryExp)node).getParamType();
+            }
+        }
+        return -1;
     }
 }

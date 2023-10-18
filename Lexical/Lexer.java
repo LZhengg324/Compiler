@@ -1,5 +1,9 @@
 package Lexical;
 
+import ErrorHandling.Error;
+import ErrorHandling.ErrorHandler;
+import ErrorHandling.ErrorType;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -188,13 +192,34 @@ public class Lexer {
     }
 
     private void processFormatString(char c) {
+        boolean error = false;
         token.append(c);
         Character next;
+        int lineStart = lineNum;
         do {
             next = getChar();
             token.append(next);
-        } while (next != '\"');
-        list.add(new tokenNode(token.toString(), LexType.STRCON, lineNum));
+
+            if (next == '\"') {
+                break;
+            }
+
+            if (next != 32 && next != 33 && !(next >= 40 && next <= 126)) {
+                if (next == '%') {
+                    if (source.charAt(curPos) != 'd') {
+                        ErrorHandler.addError(new Error(ErrorType.a, lineStart));
+                    }
+                } else {
+                    ErrorHandler.addError(new Error(ErrorType.a, lineStart));
+                }
+            } else if (next == '\\') {
+                if (source.charAt(curPos) != 'n') {
+                    ErrorHandler.addError(new Error(ErrorType.a, lineStart));
+                }
+            }
+
+        } while (true);
+        list.add(new tokenNode(token.toString(), LexType.STRCON, lineStart));
     }
 
     public void clearToken() {

@@ -1,8 +1,10 @@
 package Grammar.GrammarNode;
 
+import Grammar.NodeType;
+
 import java.io.FileWriter;
 import java.io.IOException;
 
 public interface ASTNode {
-    public void print(FileWriter fileWriter) throws IOException;
+    void print(FileWriter fileWriter) throws IOException;
 }
