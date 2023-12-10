@@ -22,7 +22,6 @@ public class Parser {
     private int pos;
     private int inLoop;
     private boolean isFuncDef = false;
-    private boolean isMain = false;
     private static int InitValCnt;
     private ArrayList<String> loopStartLabel;
     private ArrayList<String> loopStmtLabel;
@@ -304,7 +303,6 @@ public class Parser {
         //MainFuncDef -> 'int' 'main' '(' ')' Block
         FunctionsManager.getInstance().newFunction();
         MainFuncDef mainFuncDef = new MainFuncDef();
-        isMain = true;
 
         FunctionsManager.getInstance().writeFunction().setFuncType(curToken.getLexType());
         mainFuncDef.addChild(setLeafNode());    //'int'
