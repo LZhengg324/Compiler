@@ -1,7 +1,5 @@
 package Grammar.GrammarNode;
 
-import Grammar.NodeType;
-
 import java.io.FileWriter;
 import java.io.IOException;
 

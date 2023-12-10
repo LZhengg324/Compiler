@@ -15,15 +15,18 @@ public class FileProcessor {
     private final FileReader fileReader;
     private final FileWriter parserFileWriter;
     private final FileWriter errorsFileWriter;
+    private final FileWriter pcodeResultFileWriter;
     private final String fileName = "testfile.txt";
     private final String outputName = "output.txt";
     private final String errorName = "error.txt";
+    private final String resultName = "pcoderesult.txt";
     private final String source;
 
     public FileProcessor() throws IOException {
         this.fileReader = new FileReader(fileName);
         this.parserFileWriter = new FileWriter(outputName);
         this.errorsFileWriter = new FileWriter(errorName);
+        this.pcodeResultFileWriter = new FileWriter(resultName);
         source = generateSource();
     }
 
@@ -78,5 +81,11 @@ public class FileProcessor {
         }
         errorsFileWriter.flush();
         errorsFileWriter.close();
+    }
+
+    public void generatePcodeResult(String executeResult) throws IOException {
+        pcodeResultFileWriter.append(executeResult);
+        pcodeResultFileWriter.flush();
+        pcodeResultFileWriter.close();
     }
 }

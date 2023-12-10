@@ -2,7 +2,6 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,5 +23,9 @@ public class FuncFParam extends NonTerminalNode {
             iterator.next().print(fileWriter);
         }
         fileWriter.append("<FuncFParam>\n");
+    }
+
+    public void loadPCode() {
+
     }
 }

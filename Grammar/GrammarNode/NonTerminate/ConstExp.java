@@ -2,7 +2,6 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,5 +23,14 @@ public class ConstExp extends NonTerminalNode {
             iterator.next().print(fileWriter);
         }
         fileWriter.append("<ConstExp>\n");
+    }
+
+    public int getConstValue() {
+        AddExp node = (AddExp) super.getChildNodes().get(0);
+        return node.getConstValue();
+    }
+
+    public void loadPCode() {
+        ((AddExp)super.getChildNodes().get(0)).loadPCode();
     }
 }

@@ -1,13 +1,16 @@
 package Grammar;
 
+import CodeGeneration.Command.*;
+import CodeGeneration.Pcode;
+import CodeGeneration.PcodeContainer;
 import ErrorHandling.Error;
 import ErrorHandling.ErrorHandler;
 import ErrorHandling.ErrorType;
 import Grammar.GrammarNode.NonTerminalNode;
 import Grammar.GrammarNode.NonTerminate.*;
-import Grammar.Tables.FunctionsTable;
+import Grammar.Tables.FunctionsManager;
 import Grammar.Tables.Symbol;
-import Grammar.Tables.SymbolsTable;
+import Grammar.Tables.SymbolsManager;
 import Lexical.LexType;
 import Lexical.tokenNode;
 
@@ -18,8 +21,14 @@ public class Parser {
     private tokenNode curToken;
     private int pos;
     private int inLoop;
-    private SymbolsTable symbolsTable;
-    private FunctionsTable functionsTable;
+    private boolean isFuncDef = false;
+    private boolean isMain = false;
+    private static int InitValCnt;
+    private ArrayList<String> loopStartLabel;
+    private ArrayList<String> loopStmtLabel;
+    private ArrayList<String> loopEndLabel;
+    private ArrayList<Integer> curLoopBlocksCnt;
+    private ArrayList<Integer> curFuncBlocksCnt;
     private CompUnit root;
 
     public Parser(ArrayList<tokenNode> list) {
@@ -27,8 +36,11 @@ public class Parser {
         this.pos = 0;
         this.inLoop = 0;
         this.curToken = list.get(pos);
-        this.symbolsTable = new SymbolsTable();
-        this.functionsTable = new FunctionsTable();
+        loopStartLabel = new ArrayList<>();
+        loopStmtLabel = new ArrayList<>();
+        loopEndLabel = new ArrayList<>();
+        curLoopBlocksCnt= new ArrayList<>();
+        curFuncBlocksCnt = new ArrayList<>();
         root = parseCompUnit();
     }
 
@@ -59,21 +71,24 @@ public class Parser {
             //decls.add(parseDecl()); //✔
             compUnit.addChild(parseDecl());
         }
-
+        PcodeContainer.getInstance().addPcode(new JMP("START"));
         //是函数
         while (list.get(pos + 1).getLexType().compareTo(LexType.MAINTK) != 0
                 && list.get(pos + 2).getLexType().compareTo(LexType.LPARENT) == 0) {
             //funcDefs.add(parseFuncDef());
-            functionsTable.newFunction();
+            FunctionsManager.getInstance().newFunction();
             compUnit.addChild(parseFuncDef());
         }
-
+        PcodeContainer.getInstance().addPcode(new LABEL("START"));
+        PcodeContainer.getInstance().addPcode(new CALL("main", 0));
+        PcodeContainer.getInstance().addPcode(new JMP("END"));
+        PcodeContainer.getInstance().addPcode(new LABEL("main"));
         if (curToken.getLexType().compareTo(LexType.INTTK) == 0
                 && list.get(pos + 1).getLexType().compareTo(LexType.MAINTK) == 0) {
             compUnit.addChild(parseMainFuncDef());
+            PcodeContainer.getInstance().addPcode(new LABEL("END"));
             return compUnit;
         }
-
         return null;
     }
 
@@ -119,32 +134,53 @@ public class Parser {
     public ConstDef parseConstDef() {
         //ConstDef -> Ident { '[' ConstExp ']' } '=' ConstInitVal
         ConstDef constDef = new ConstDef();
-        Symbol symbol = new Symbol(LexType.CONSTTK, curToken.getContent());
+        String varName = curToken.getContent();
+        Symbol symbol = new Symbol(LexType.CONSTTK, varName);
 
         readVarDef(constDef, symbol);
+        PcodeContainer.getInstance().addPcode(new INT(symbol.getSize()));
 
         constDef.addChild(setLeafNode());   //'='
-        constDef.addChild(parseConstInitVal());
+        int level = SymbolsManager.getInstance().getVarLevel(varName);
+        int addr = symbol.getAddr();
+        InitValCnt = 0;
+        ConstInitVal constInitVal = parseConstInitVal(level, addr);
+        constDef.addChild(constInitVal);
+
+//        ArrayList<Integer> values = symbol.getConstValue();
+//        PcodeContainer.getInstance().addPcode(new INT(size));
+
+//        for (int i = 0; i < size; i++) {
+//            PcodeContainer.getInstance().addPcode(new LIT(values.get(i)));
+//            PcodeContainer.getInstance().addPcode(new LIT(i));
+//            PcodeContainer.getInstance().addPcode(new STO(level, addr));
+//        }
 
         return constDef;
     }
 
-    public ConstInitVal parseConstInitVal() {
+    public ConstInitVal parseConstInitVal(int level, int addr) {
         //ConstInitVal -> ConstExp | '{' [ ConstInitVal { ',' ConstInitVal } ] '}'
         ConstInitVal constInitVal = new ConstInitVal();
 
         if (curToken.getLexType().compareTo(LexType.LBRACE) == 0) {
             constInitVal.addChild(setLeafNode());   //'{'
             if (curToken.getLexType().compareTo(LexType.RBRACE) != 0) {
-                constInitVal.addChild(parseConstInitVal());
+                constInitVal.addChild(parseConstInitVal(level, addr));
                 while (curToken.getLexType().compareTo(LexType.COMMA) == 0) {
                     constInitVal.addChild(setLeafNode());   //','
-                    constInitVal.addChild(parseConstInitVal());
+                    constInitVal.addChild(parseConstInitVal(level, addr));
                 }
             }
             constInitVal.addChild(setLeafNode());   //'}'
         } else {
-            constInitVal.addChild(parseConstExp());
+            ConstExp constExp = parseConstExp();
+            constInitVal.addChild(constExp);
+//            SymbolsManager.getInstance().addConstVarValue(constExp.getConstValue());
+//            PcodeContainer.getInstance().addPcode(new LIT(constExp.getConstValue()));
+            constExp.loadPCode();
+            PcodeContainer.getInstance().addPcode(new LIT(InitValCnt++));
+            PcodeContainer.getInstance().addPcode(new STO(level, addr));
         }
         return constInitVal;
     }
@@ -170,32 +206,51 @@ public class Parser {
     public VarDef parseVarDef() {
         //VarDef -> Ident { '[' ConstExp ']' } | Ident { '[' ConstExp ']' } '=' InitVal
         VarDef varDef = new VarDef();
-        Symbol symbol = new Symbol(LexType.INTTK, curToken.getContent());
+        String varName = curToken.getContent();
+        Symbol symbol = new Symbol(LexType.INTTK, varName);
 
         readVarDef(varDef, symbol);
+
+        int level = SymbolsManager.getInstance().getVarLevel(varName);
+        int addr = symbol.getAddr();
+        int size = symbol.getSize();
+        PcodeContainer.getInstance().addPcode(new INT(size));
+
         if (curToken.getLexType().compareTo(LexType.ASSIGN) == 0) {
             varDef.addChild(setLeafNode()); //'='
-            varDef.addChild(parseInitVal());
+            InitValCnt = 0;
+            InitVal initVal = parseInitVal(level, addr);
+            varDef.addChild(initVal);
+        } else if (symbol.getDepth() == 0) {
+            for (int i = 0; i < size; i++) {
+                PcodeContainer.getInstance().addPcode(new LIT(0));
+                PcodeContainer.getInstance().addPcode(new LIT(i));
+                PcodeContainer.getInstance().addPcode(new STO(level, addr));
+            }
         }
         return varDef;
     }
 
-    public InitVal parseInitVal() {
+    public InitVal parseInitVal(int level, int addr) {
         //InitVal -> Exp | '{' [ InitVal { ',' InitVal } ] '}'
         InitVal initVal = new InitVal();
 
         if (curToken.getLexType().compareTo(LexType.LBRACE) == 0) {
             initVal.addChild(setLeafNode());    //'{'
             if (curToken.getLexType().compareTo(LexType.RBRACE) != 0) {
-                initVal.addChild(parseInitVal());
+                initVal.addChild(parseInitVal(level, addr));
                 while (curToken.getLexType().compareTo(LexType.COMMA) == 0) {
                     initVal.addChild(setLeafNode());    //','
-                    initVal.addChild(parseInitVal());
+                    initVal.addChild(parseInitVal(level, addr));
                 }
             }
             initVal.addChild(setLeafNode());
         } else {
-            initVal.addChild(parseExp());
+            Exp exp = parseExp();
+            initVal.addChild(exp);
+            exp.loadPCode();
+            PcodeContainer.getInstance().addPcode(new LIT(InitValCnt++));
+            PcodeContainer.getInstance().addPcode(new STO(level, addr));
         }
         return initVal;
     }
@@ -203,18 +258,25 @@ public class Parser {
     public FuncDef parseFuncDef() {
         //FuncDef -> FuncType Ident '(' [FuncFParams] ')' Block
         FuncDef funcDef = new FuncDef();
+        isFuncDef = true;
+        boolean funcInvalid = false;
         funcDef.addChild(parseFuncType());
 
-        if (FunctionsTable.funcHasDefined(curToken.getContent())
-                || !SymbolsTable.checkVarIsUnDefined(curToken.getContent())) {
+        if (FunctionsManager.getInstance().funcHasDefined(curToken.getContent())
+                || !SymbolsManager.getInstance().checkVarIsUnDefined(curToken.getContent())) {
             ErrorHandler.addError(new Error(ErrorType.b, curToken.getLineNum()));
+            funcInvalid = true;
         } else {
-            functionsTable.writeFunction().setFuncName(curToken.getContent());
-            functionsTable.addFunction();
+            FunctionsManager.getInstance().writeFunction().setFuncName(curToken.getContent());
+            FunctionsManager.getInstance().addFunction();
         }
 
+        String funcName = curToken.getContent();
+        PcodeContainer.getInstance().addPcode(new LABEL(funcName));
         funcDef.addChild(setLeafNode());    //'Ident'
-        symbolsTable.addBlock();
+
+        SymbolsManager.getInstance().addBlock();
+//        PcodeContainer.getInstance().addPcode(new BLKS());
         funcDef.addChild(setLeafNode());    //'('
         if (curToken.getLexType().compareTo(LexType.RPARENT) != 0
                 && curToken.getLexType().compareTo(LexType.LBRACE) != 0) {
@@ -225,23 +287,30 @@ public class Parser {
         } else {
             ErrorHandler.addError(new Error(ErrorType.j, list.get(pos - 1).getLineNum()));
         }
+        curFuncBlocksCnt.add(0);
         funcDef.addChild(parseBlock());
-        if (functionsTable.curIntFuncNoRet()) {
-            ErrorHandler.addError(new Error(ErrorType.g, list.get(pos - 1).getLineNum()));
+        curFuncBlocksCnt.remove(curFuncBlocksCnt.size() - 1);
+        if (!funcInvalid && FunctionsManager.getInstance().curFuncNoReturn()) {
+//                && FunctionsManager.getInstance().getFuncRetType(funcName).compareTo(LexType.INTTK) == 0) {
+            if (FunctionsManager.getInstance().getFuncRetType(funcName).compareTo(LexType.INTTK) == 0) {
+                ErrorHandler.addError(new Error(ErrorType.g, list.get(pos - 1).getLineNum()));
+            }
         }
+        isFuncDef = false;
         return funcDef;
     }
 
     public MainFuncDef parseMainFuncDef() {
         //MainFuncDef -> 'int' 'main' '(' ')' Block
-        functionsTable.newFunction();
+        FunctionsManager.getInstance().newFunction();
         MainFuncDef mainFuncDef = new MainFuncDef();
+        isMain = true;
 
-        functionsTable.writeFunction().setFuncType(curToken.getLexType());
+        FunctionsManager.getInstance().writeFunction().setFuncType(curToken.getLexType());
         mainFuncDef.addChild(setLeafNode());    //'int'
 
-        functionsTable.writeFunction().setFuncName(curToken.getContent());
-        functionsTable.addFunction();
+        FunctionsManager.getInstance().writeFunction().setFuncName(curToken.getContent());
+        FunctionsManager.getInstance().addFunction();
         mainFuncDef.addChild(setLeafNode());    //'main'
 
         mainFuncDef.addChild(setLeafNode());    //'('
@@ -251,9 +320,12 @@ public class Parser {
             ErrorHandler.addError(new Error(ErrorType.j, list.get(pos - 1).getLineNum()));
         }
 
-        symbolsTable.addBlock();
+        SymbolsManager.getInstance().addBlock();
+        //PcodeContainer.getInstance().addPcode(new BLKS());
+//        PcodeContainer.getInstance().addPcode(new CALL("main", 0));
+
         mainFuncDef.addChild(parseBlock());
-        if (functionsTable.curIntFuncNoRet()) {
+        if (FunctionsManager.getInstance().curFuncNoReturn()) {
             ErrorHandler.addError(new Error(ErrorType.g, curToken.getLineNum()));
         }
 
@@ -263,7 +335,7 @@ public class Parser {
     public FuncType parseFuncType() {
         //FuncType -> 'void' | 'int'
         FuncType funcType = new FuncType();
-        functionsTable.writeFunction().setFuncType(curToken.getLexType());
+        FunctionsManager.getInstance().writeFunction().setFuncType(curToken.getLexType());
         funcType.addChild(setLeafNode());   // 'void' | 'int'
         return funcType;
     }
@@ -283,19 +355,18 @@ public class Parser {
     public FuncFParam parseFuncFParam() {
         //FuncFParam -> BType Ident ['[' ']' { '[' ConstExp ']' }]
         FuncFParam funcFParam = new FuncFParam();
-        Symbol symbol = new Symbol();
         int paraDimension = 0;
 
-        symbol.setVarType(LexType.INTTK);
         funcFParam.addChild(parseBType());
+        String varName = curToken.getContent();
+        Symbol symbol = new Symbol(LexType.INTTK, varName);
+        SymbolsManager.getInstance().checkVarIsReDefined(symbol, curToken.getLineNum());
 
-        symbol.setVarName(curToken.getContent());
-        SymbolsTable.checkVarIsReDefined(symbol, curToken.getLineNum());
         funcFParam.addChild(setLeafNode()); //'Ident'
-
         if (curToken.getLexType().compareTo(LexType.LBRACK) == 0) {
             paraDimension++;
-            symbol.addDimension();
+            SymbolsManager.getInstance().setIsFParamArrayAddr(symbol.getVarName());
+            symbol.addDimension(-1);
             funcFParam.addChild(setLeafNode()); //'['
             if (LexTypeEqual(LexType.RBRACK)) {
                 funcFParam.addChild(setLeafNode()); //']'
@@ -304,9 +375,10 @@ public class Parser {
             }
             while (curToken.getLexType().compareTo(LexType.LBRACK) == 0) {
                 paraDimension++;
-                symbol.addDimension();
                 funcFParam.addChild(setLeafNode()); //'['
-                funcFParam.addChild(parseConstExp());
+                ConstExp constExp = parseConstExp();
+                funcFParam.addChild(constExp);
+                symbol.addDimension(constExp.getConstValue());
                 if (LexTypeEqual(LexType.RBRACK)) {
                     funcFParam.addChild(setLeafNode()); //']'
                 } else {
@@ -314,7 +386,7 @@ public class Parser {
                 }
             }
         }
-        functionsTable.writeFunction().insertParam(paraDimension);
+        FunctionsManager.getInstance().writeFunction().insertParam(paraDimension);
         return funcFParam;
     }
 
@@ -326,7 +398,13 @@ public class Parser {
             block.addChild(parseBlockItem());
         }
         block.addChild(setLeafNode());  //'}'
-        symbolsTable.quitBlock();
+        SymbolsManager.getInstance().quitBlock();
+        if (isFuncDef && curFuncBlocksCnt.get(curFuncBlocksCnt.size() - 1) == 0
+                && FunctionsManager.getInstance().getCurDefFuncRetType().compareTo(LexType.VOIDTK) == 0) {
+            PcodeContainer.getInstance().addPcode(new RET());
+        } else {
+            PcodeContainer.getInstance().addPcode(new BLKE());
+        }
         return block;
     }
 
@@ -356,40 +434,86 @@ public class Parser {
 
         if (curToken.getLexType().compareTo(LexType.IFTK) == 0) {
             //'if' '(' Cond ')' Stmt [ 'else' Stmt ]
+            PcodeContainer.getInstance().generateIfLabel();
+            PcodeContainer.getInstance().generateIfEndLabel();
+            PcodeContainer.getInstance().generateElseLabel();
+            String ifLabel = PcodeContainer.getInstance().getIfLabel();
+            String ifEndLabel = PcodeContainer.getInstance().getIfEndLabel();
+            String elseLabel = PcodeContainer.getInstance().getElseLabel();
+
             stmt.setType(StmtType.IfStmt);
             stmt.addChild(setLeafNode());   //IFTK
             stmt.addChild(setLeafNode());   //'('
-            stmt.addChild(parseCond());
+            Cond cond = parseCond();
+            cond.loadPCode(ifLabel, elseLabel);
+            stmt.addChild(cond);
             if (LexTypeEqual(LexType.RPARENT)) {
                 stmt.addChild(setLeafNode());   //')'
             } else {
                 ErrorHandler.addError(new Error(ErrorType.j, list.get(pos - 1).getLineNum()));
             }
+
+            PcodeContainer.getInstance().addPcode(new LABEL(ifLabel));
+
             stmt.addChild(parseStmt());
+            PcodeContainer.getInstance().addPcode(new JMP(ifEndLabel));
+            PcodeContainer.getInstance().addPcode(new LABEL(elseLabel));
             if (curToken.getLexType().compareTo(LexType.ELSETK) == 0) {
+
                 stmt.addChild(setLeafNode());   //'ELSETK'
                 stmt.addChild(parseStmt());
             }
+            PcodeContainer.getInstance().addPcode(new LABEL(ifEndLabel));
         } else if (curToken.getLexType().compareTo(LexType.FORTK) == 0) {
             //'for' '(' [ForStmt] ';' [Cond] ';' [ForStmt] ')' Stmt
             stmt.setType(StmtType.ForStmt);
+
+            PcodeContainer.getInstance().generateForStartLabel();
+            PcodeContainer.getInstance().generateForStmtLabel();
+            PcodeContainer.getInstance().generateForEndLabel();
+            String forStart = PcodeContainer.getInstance().getForStartLabel();
+            String forStmt = PcodeContainer.getInstance().getForStmtLabel();
+            String forEnd = PcodeContainer.getInstance().getForEndLabel();
+            loopStartLabel.add(forStart);
+            loopStmtLabel.add(forStmt);
+            loopEndLabel.add(forEnd);
+            curLoopBlocksCnt.add(0);
+
             stmt.addChild(setLeafNode());   //'FORTK'
             stmt.addChild(setLeafNode());   //'('
             if (curToken.getLexType().compareTo(LexType.SEMICN) != 0) {
-                stmt.addChild(parseForStmt());
+                ForStmt forStmt1 = parseForStmt();
+                stmt.addChild(forStmt1);
+                forStmt1.loadPCode();
             }
             stmt.addChild(setLeafNode());   //';'
+            PcodeContainer.getInstance().addPcode(new LABEL(forStart));
             if (curToken.getLexType().compareTo(LexType.SEMICN) != 0) {
-                stmt.addChild(parseCond());
+                Cond cond = parseCond();
+                stmt.addChild(cond);
+                cond.loadPCode(null, forEnd);
             }
             stmt.addChild(setLeafNode());   //';'
+            ForStmt forStmt2 = null;
             if (curToken.getLexType().compareTo(LexType.RPARENT) != 0) {
-                stmt.addChild(parseForStmt());
+                forStmt2 = parseForStmt();
+                stmt.addChild(forStmt2);
             }
             stmt.addChild(setLeafNode());   //')'
             getInToLoop();
             stmt.addChild(parseStmt());
+            PcodeContainer.getInstance().addPcode(new LABEL(forStmt));
+            if (forStmt2 != null) {
+                forStmt2.loadPCode();
+            }
+            PcodeContainer.getInstance().addPcode(new JMP(forStart));
+            PcodeContainer.getInstance().addPcode(new LABEL(forEnd));
             getOutFromLoop();
+
+            loopStartLabel.remove(loopStartLabel.size() - 1);
+            loopStmtLabel.remove(loopStmtLabel.size() - 1);
+            loopEndLabel.remove(loopEndLabel.size() - 1);
+            curLoopBlocksCnt.remove(curLoopBlocksCnt.size() - 1);
         } else if (curToken.getLexType().compareTo(LexType.BREAKTK) == 0
                 || curToken.getLexType().compareTo(LexType.CONTINUETK) == 0) {
             //'break' ';' | 'continue' ';'
@@ -407,18 +531,41 @@ public class Parser {
             } else {
                 ErrorHandler.addError(new Error(ErrorType.i, list.get(pos - 1).getLineNum()));
             }
+            int cnt = curLoopBlocksCnt.get(curLoopBlocksCnt.size() - 1);
+            for (int i = 0; i < cnt; i++) {
+                PcodeContainer.getInstance().addPcode(new BLKE());
+            }
+            if (stmt.getType().compareTo(StmtType.BreakStmt) == 0) {
+                PcodeContainer.getInstance().addPcode(new JMP(loopEndLabel.get(loopEndLabel.size() - 1)));
+            } else {
+                PcodeContainer.getInstance().addPcode(new JMP(loopStmtLabel.get(loopStmtLabel.size() - 1)));
+            }
         } else if (curToken.getLexType().compareTo(LexType.RETURNTK) == 0) {
             //'return' [Exp] ';'
             stmt.setType(StmtType.ReturnStmt);
             int returnLineNum = curToken.getLineNum();
             stmt.addChild(setLeafNode());   //'RETURNTK'
-            functionsTable.curIntFuncRetMatched();
+            FunctionsManager.getInstance().curFuncHasReturn();
+            int level = 0;
+            if (isFuncDef) {
+                level = curFuncBlocksCnt.get(curFuncBlocksCnt.size() - 1);
+            }
             if (curToken.getLexType().compareTo(LexType.SEMICN) != 0) {
-                if (functionsTable.getCurDefFuncRetType().compareTo(LexType.VOIDTK) == 0) {
+                if (FunctionsManager.getInstance().getCurDefFuncRetType().compareTo(LexType.VOIDTK) == 0) {
                     ErrorHandler.addError(new Error(ErrorType.f, returnLineNum));
                 }
-                stmt.addChild(parseExp());
+                Exp exp = parseExp();
+                stmt.addChild(exp);
+                exp.loadPCode();
+                PcodeContainer.getInstance().addPcode(new LIT(0));
+                PcodeContainer.getInstance().addPcode(new STO(level, 0));
             }
+            for (int i = 0; i < level; i++) {
+//                PcodeContainer.getInstance().addPcode(new LABEL("from here"));
+                PcodeContainer.getInstance().addPcode(new BLKE());
+            }
+            PcodeContainer.getInstance().addPcode(new RET());
+
             if (LexTypeEqual(LexType.SEMICN)) {
                 stmt.addChild(setLeafNode());   //';'
             } else {
@@ -430,14 +577,39 @@ public class Parser {
             int lineNum = curToken.getLineNum();
             stmt.addChild(setLeafNode());   //'PRINTFTK'
             stmt.addChild(setLeafNode());   //'('
+            String strcon = curToken.getContent().replace("\"", "");
             int fmtChar = getFmtChar(curToken.getContent());
             stmt.addChild(setLeafNode());   //'STRCON'
 
+            ArrayList<Exp> exps = new ArrayList<>();
             while (curToken.getLexType().compareTo(LexType.COMMA) == 0) {
                 stmt.addChild(setLeafNode());   //','
-                stmt.addChild(parseExp());
+                Exp exp = parseExp();
+                exps.add(exp);
+                stmt.addChild(exp);
                 fmtChar--;
             }
+            for (int i = exps.size() - 1; i >= 0; i--) {
+                exps.get(i).loadPCode();
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < strcon.length(); i++) {
+                if (strcon.charAt(i) == '%') {
+                    PcodeContainer.getInstance().addPcode(new WRTS(sb.toString()));
+                    PcodeContainer.getInstance().addPcode(new WRT());
+                    sb.delete(0, sb.length());
+                    i++;
+                } else if (strcon.charAt(i) == '\\') {
+                    sb.append("\n");
+                    i++;
+                } else {
+                    sb.append(strcon.charAt(i));
+                }
+            }
+            if (!sb.isEmpty()) {
+                PcodeContainer.getInstance().addPcode(new WRTS(sb.toString()));
+            }
+//            PcodeContainer.getInstance().addPcode(new WRTS("\\n"));
 
             if (fmtChar != 0) {
                 ErrorHandler.addError(new Error(ErrorType.l, lineNum));
@@ -454,9 +626,30 @@ public class Parser {
             } else {
                 ErrorHandler.addError(new Error(ErrorType.i, list.get(pos - 1).getLineNum()));
             }
+            String temp;
+            for (int i = 0; i < strcon.length(); i++) {
+
+            }
         } else if (curToken.getLexType().compareTo(LexType.LBRACE) == 0) {
-            symbolsTable.addBlock();
+            SymbolsManager.getInstance().addBlock();
+            PcodeContainer.getInstance().addPcode(new BLKS());
+            if (!curLoopBlocksCnt.isEmpty()) {
+                int temp = curLoopBlocksCnt.remove(curLoopBlocksCnt.size() - 1);
+                curLoopBlocksCnt.add(++temp);
+            }
+            if (isFuncDef) {
+                int temp = curFuncBlocksCnt.remove(curFuncBlocksCnt.size() - 1);
+                curFuncBlocksCnt.add(++temp);
+            }
             stmt.addChild(parseBlock());
+            if (isFuncDef) {
+                int temp = curFuncBlocksCnt.remove(curFuncBlocksCnt.size() - 1);
+                curFuncBlocksCnt.add(--temp);
+            }
+            if (!curLoopBlocksCnt.isEmpty()) {
+                int temp = curLoopBlocksCnt.remove(curLoopBlocksCnt.size() - 1);
+                curLoopBlocksCnt.add(--temp);
+            }
         } else {
             //LVal '=' Exp ';'
             //LVal '=' 'getint' '(' ')' ';'
@@ -469,13 +662,21 @@ public class Parser {
                 }
             }
             if (temp > pos) {
-                if (symbolsTable.varIsConst(curToken.getContent())) {
+                if (SymbolsManager.getInstance().varIsConst(curToken.getContent())) {
                     ErrorHandler.addError(new Error(ErrorType.h, curToken.getLineNum()));
                 }
-                stmt.addChild(parseLVal());
+                LVal lVal = parseLVal();
+                stmt.addChild(lVal);
+                //lVal.loadPCode();
+
                 stmt.addChild(setLeafNode());   //'='
+                String varName = lVal.getIdent();
+                int level = SymbolsManager.getInstance().getVarLevel(varName);
+                int addr = SymbolsManager.getInstance().getVarAddr(varName);
                 if (curToken.getLexType().compareTo(LexType.GETINTTK) == 0) {
                     stmt.setType(StmtType.LValGetIntStmt);
+                    PcodeContainer.getInstance().addPcode(new RED());
+                    lVal.loadPCode(true);
                     stmt.addChild(setLeafNode());   //'GETINTTK
                     stmt.addChild(setLeafNode());   //'('
 
@@ -493,17 +694,31 @@ public class Parser {
 
                 } else {
                     stmt.setType(StmtType.LValStmt);
-                    stmt.addChild(parseExp());
+                    Exp exp = parseExp();
+                    exp.loadPCode();
+                    lVal.loadPCode(true);
+                    stmt.addChild(exp);
+
                     if (LexTypeEqual(LexType.SEMICN)) {
                         stmt.addChild(setLeafNode());   //';'
                     } else {
                         ErrorHandler.addError(new Error(ErrorType.i, list.get(pos - 1).getLineNum()));
                     }
                 }
+                if (SymbolsManager.getInstance().isFParamArrayAddr(varName)) {
+                    PcodeContainer.getInstance().addPcode(new LIT(0));
+                    PcodeContainer.getInstance().addPcode(new LOD(level, addr));
+                    PcodeContainer.getInstance().addPcode(new OPR(OPR.OPRType.ADD));
+                    PcodeContainer.getInstance().addPcode(new STO(-1, 0));
+                } else {
+                    PcodeContainer.getInstance().addPcode(new STO(level, addr));
+                }
             } else {
                 stmt.setType(StmtType.ExpStmt);
                 if (curToken.getLexType().compareTo(LexType.SEMICN) != 0) {
-                    stmt.addChild(parseExp());
+                    Exp exp = parseExp();
+                    exp.loadPCode();
+                    stmt.addChild(exp);
                 }
                 if (LexTypeEqual(LexType.SEMICN)) {
                     stmt.addChild(setLeafNode());   //';'
@@ -518,7 +733,7 @@ public class Parser {
     public ForStmt parseForStmt() {
         //ForStmt -> LVal '=' Exp
         ForStmt forStmt = new ForStmt();
-        if (symbolsTable.varIsConst(curToken.getContent())) {
+        if (SymbolsManager.getInstance().varIsConst(curToken.getContent())) {
             ErrorHandler.addError(new Error(ErrorType.h, curToken.getLineNum()));
         }
         forStmt.addChild(parseLVal());
@@ -545,7 +760,7 @@ public class Parser {
         //LVal -> Ident {'[' Exp ']'}
         LVal lVal = new LVal();
 
-        if (SymbolsTable.checkVarIsUnDefined(curToken.getContent())) {
+        if (SymbolsManager.getInstance().checkVarIsUnDefined(curToken.getContent())) {
             ErrorHandler.addError(new Error(ErrorType.c, curToken.getLineNum()));
         }
         lVal.addChild(setLeafNode());   //'Ident'
@@ -559,6 +774,15 @@ public class Parser {
                 ErrorHandler.addError(new Error(ErrorType.k, list.get(pos - 1).getLineNum()));
             }
         }
+
+//        if (lVal.expNodes().isEmpty()) {
+//            PcodeContainer.getInstance().addPcode(new LIT(0));
+//        } else {
+//            for (int i = 0; i < lVal.expNodes().size(); i++) {
+//                lVal.expNodes().get(i).loadPCode();
+//            }
+//        }
+        //lVal.loadPCode();
         return lVal;
     }
 
@@ -593,28 +817,30 @@ public class Parser {
 
         if (curToken.getLexType().compareTo(LexType.IDENFR) == 0
                 && list.get(pos + 1).getLexType().compareTo(LexType.LPARENT) == 0) {
-            if (!FunctionsTable.funcHasDefined(curToken.getContent())) {
+            if (!FunctionsManager.getInstance().funcHasDefined(curToken.getContent())) {
                 ErrorHandler.addError(new Error(ErrorType.c, curToken.getLineNum()));
             }
             String funcName = curToken.getContent();
             int identLineNum = curToken.getLineNum();
             unaryExp.addChild(setLeafNode());   //'Ident'
             unaryExp.addChild(setLeafNode());   //'('
+
             if (nextIsFuncRParam()) {
                 unaryExp.addChild(parseFuncRParams());
             }
+
             if (LexTypeEqual(LexType.RPARENT)) {
                 unaryExp.addChild(setLeafNode());   //')'
             } else {
                 ErrorHandler.addError(new Error(ErrorType.j, list.get(pos - 1).getLineNum()));
             }
 
-            if (FunctionsTable.funcHasDefined(funcName)) {
-                if (unaryExp.getFuncRParamsSize() != functionsTable.getFuncFParamsSize(funcName)) {
+            if (FunctionsManager.getInstance().funcHasDefined(funcName)) {
+                if (unaryExp.getFuncRParamsSize() != FunctionsManager.getInstance().getFuncFParamsSize(funcName)) {
                     ErrorHandler.addError(new Error(ErrorType.d, identLineNum));
                 } else if (unaryExp.getFuncRParamsSize() != 0) {
                     ArrayList<Integer> type1 = unaryExp.getFuncRParamsTypes();
-                    ArrayList<Integer> type2 = functionsTable.getFuncFParams(funcName);
+                    ArrayList<Integer> type2 = FunctionsManager.getInstance().getFuncFParams(funcName);
 
                     for (int i = 0; i < type1.size(); i++) {
                         if (type1.get(i).compareTo(type2.get(i)) != 0) {
@@ -762,25 +988,23 @@ public class Parser {
     }
 
     public boolean nextIsFuncRParam() {
-        if (curToken.getLexType().compareTo(LexType.LPARENT) == 0
+        return curToken.getLexType().compareTo(LexType.LPARENT) == 0
                 || curToken.getLexType().compareTo(LexType.IDENFR) == 0
                 || curToken.getLexType().compareTo(LexType.PLUS) == 0
                 || curToken.getLexType().compareTo(LexType.MINU) == 0
                 || curToken.getLexType().compareTo(LexType.NOT) == 0
-                || curToken.getLexType().compareTo(LexType.INTCON) == 0) {
-            return true;
-        }
-        return false;
+                || curToken.getLexType().compareTo(LexType.INTCON) == 0;
     }
 
     public void readVarDef(NonTerminalNode node, Symbol symbol) {
-
-        SymbolsTable.checkVarIsReDefined(symbol, curToken.getLineNum());
+        SymbolsManager.getInstance().checkVarIsReDefined(symbol, curToken.getLineNum());
         node.addChild(setLeafNode());   //Ident
         while (curToken.getLexType().compareTo(LexType.LBRACK) == 0) {
-            symbol.addDimension();
             node.addChild(setLeafNode());   //'['
-            node.addChild(parseConstExp());
+            ConstExp constExp = parseConstExp();
+            //constExp.loadPCode();
+            node.addChild(constExp);
+            symbol.addDimension(constExp.getConstValue());
             if (LexTypeEqual(LexType.RBRACK)) {
                 node.addChild(setLeafNode());   //']'
             } else {

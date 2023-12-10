@@ -5,11 +5,16 @@ import Lexical.LexType;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class FunctionsTable {
-    private static final HashMap<String, Function> functionsTable = new HashMap<>();    //函数定义表
+public class FunctionsManager {
+    private static FunctionsManager instance = new FunctionsManager();
+    private final HashMap<String, Function> functionsTable = new HashMap<>();    //函数定义表
     private Function currentFunctionBlock = null;
 
-    public FunctionsTable() {
+    private FunctionsManager() {
+    }
+
+    public static FunctionsManager getInstance() {
+        return instance;
     }
 
     public void newFunction() {
@@ -23,11 +28,11 @@ public class FunctionsTable {
         return currentFunctionBlock;
     }
 
-    public static boolean funcHasDefined(String name) {
+    public boolean funcHasDefined(String name) {
         return functionsTable.containsKey(name);
     }
 
-    public static LexType getFuncRetType(String name) {
+    public LexType getFuncRetType(String name) {
         if (functionsTable.containsKey(name)) {
             return functionsTable.get(name).getFuncType();
         }
@@ -46,11 +51,11 @@ public class FunctionsTable {
         return currentFunctionBlock.getFuncType();
     }
 
-    public void curIntFuncRetMatched() {
+    public void curFuncHasReturn() {
         currentFunctionBlock.retMatched();
     }
 
-    public boolean curIntFuncNoRet() {
+    public boolean curFuncNoReturn() {
         return currentFunctionBlock.checkRet();
     }
 

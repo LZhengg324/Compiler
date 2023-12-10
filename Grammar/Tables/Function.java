@@ -7,7 +7,7 @@ import java.util.ArrayList;
 public class Function {
     private LexType funcType;   //void/int
     private String funcName;
-    private boolean intFuncNoRet = false;
+    private boolean noReturn = false;
     private final ArrayList<Integer> parameters;
 
     public Function() {
@@ -28,17 +28,15 @@ public class Function {
 
     public void setFuncType(LexType funcType) {
         this.funcType = funcType;
-        if (funcType.compareTo(LexType.INTTK) == 0) {
-            this.intFuncNoRet = true;
-        }
+        this.noReturn = true;
     }
 
     public void retMatched() {
-        this.intFuncNoRet = false;
+        this.noReturn = false;
     }
 
     public boolean checkRet() {
-        return this.intFuncNoRet;
+        return this.noReturn;
     }
 
     public String getFuncName() {

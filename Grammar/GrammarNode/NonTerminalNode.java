@@ -1,6 +1,5 @@
 package Grammar.GrammarNode;
 
-import Grammar.NodeType;
 import Lexical.LexType;
 import Lexical.tokenNode;
 

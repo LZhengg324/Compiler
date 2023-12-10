@@ -2,7 +2,6 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -26,6 +25,10 @@ public class Stmt extends NonTerminalNode {
 
     public void addChild(ASTNode node) {
         super.addChild(node);
+    }
+
+    public StmtType getType() {
+        return this.type;
     }
 
     public void setType(StmtType stmtType) {

@@ -2,10 +2,10 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 public class Cond extends NonTerminalNode {
@@ -24,5 +24,9 @@ public class Cond extends NonTerminalNode {
             iterator.next().print(fileWriter);
         }
         fileWriter.append("<Cond>\n");
+    }
+
+    public void loadPCode(String trueLabel, String falseLabel) {
+        ((LOrExp)super.getChildNodes().get(0)).loadPCode(trueLabel, falseLabel);
     }
 }

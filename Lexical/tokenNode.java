@@ -1,7 +1,6 @@
 package Lexical;
 
 import Grammar.GrammarNode.ASTNode;
-import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -9,14 +8,12 @@ import java.io.IOException;
 public class tokenNode implements ASTNode {
     private String content;
     private LexType type;
-    private NodeType nodeType;
     private int lineNum;
     private Integer num;
 
     public tokenNode(String content, LexType type, int lineNum) {
         this.content = content;
         this.type = type;
-        this.nodeType = NodeType.tokenNode;
         this.lineNum = lineNum;
         if (type.compareTo(LexType.INTCON) == 0) {
             num = Integer.parseInt(content);

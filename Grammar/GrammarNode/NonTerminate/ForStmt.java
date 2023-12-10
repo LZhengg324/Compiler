@@ -1,11 +1,17 @@
 package Grammar.GrammarNode.NonTerminate;
 
+import CodeGeneration.Command.LIT;
+import CodeGeneration.Command.LOD;
+import CodeGeneration.Command.OPR;
+import CodeGeneration.Command.STO;
+import CodeGeneration.PcodeContainer;
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
+import Grammar.Tables.SymbolsManager;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
 
 public class ForStmt extends NonTerminalNode {
@@ -24,5 +30,18 @@ public class ForStmt extends NonTerminalNode {
             iterator.next().print(fileWriter);
         }
         fileWriter.append("<ForStmt>\n");
+    }
+
+    public void loadPCode() {
+        ArrayList<ASTNode> nodes = super.getChildNodes();
+        LVal lVal = (LVal)nodes.get(0);
+        Exp exp = (Exp)nodes.get(2);
+        String varName = lVal.getIdent();
+        int level = SymbolsManager.getInstance().getVarLevel(varName);
+        int addr = SymbolsManager.getInstance().getVarAddr(varName);
+
+        exp.loadPCode();
+        lVal.loadPCode(true);
+        PcodeContainer.getInstance().addPcode(new STO(level, addr));
     }
 }

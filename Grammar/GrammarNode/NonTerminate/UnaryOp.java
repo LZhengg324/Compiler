@@ -2,7 +2,8 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
+import Lexical.LexType;
+import Lexical.tokenNode;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -24,5 +25,9 @@ public class UnaryOp extends NonTerminalNode {
             iterator.next().print(fileWriter);
         }
         fileWriter.append("<UnaryOp>\n");
+    }
+
+    public LexType getOpType() {
+        return ((tokenNode)super.getChildNodes().get(0)).getLexType();
     }
 }

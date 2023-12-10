@@ -2,7 +2,6 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
 import Lexical.tokenNode;
 
 import java.io.FileWriter;
@@ -40,5 +39,31 @@ public class PrimaryExp extends NonTerminalNode {
             }
         }
         return -1;
+    }
+
+    public int getConstValue() {
+        int ret = 0;
+        for (ASTNode node : super.getChildNodes()) {
+            if (node instanceof LVal) {
+                return ((LVal)node).getConstValue();
+            } else if (node instanceof NumberNode) {
+                return ((NumberNode)node).getConstValue();
+            } else if (node instanceof Exp) {
+                return ((Exp)node).getConstValue();
+            }
+        }
+        return ret;
+    }
+
+    public void loadPCode() {
+        for (ASTNode node : super.getChildNodes()) {
+            if (node instanceof LVal) {
+                ((LVal)node).loadPCode(false);
+            } else if (node instanceof NumberNode) {
+                ((NumberNode)node).loadPCode();
+            } else if (node instanceof Exp) {
+                ((Exp)node).loadPCode();
+            }
+        }
     }
 }

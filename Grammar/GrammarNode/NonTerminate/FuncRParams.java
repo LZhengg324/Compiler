@@ -2,7 +2,6 @@ package Grammar.GrammarNode.NonTerminate;
 
 import Grammar.GrammarNode.ASTNode;
 import Grammar.GrammarNode.NonTerminalNode;
-import Grammar.NodeType;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -45,5 +44,12 @@ public class FuncRParams extends NonTerminalNode {
             }
         }
         return types;
+    }
+
+    public void loadPCode() {
+        ArrayList<ASTNode> childNodes = super.getChildNodes();
+        for (int i = 0; i < childNodes.size(); i = i + 2) {
+            ((Exp)childNodes.get(i)).loadPCode();
+        }
     }
 }
