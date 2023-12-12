@@ -14,7 +14,7 @@ public class Compiler {
         //fp.generateLexerOutput(lexer.getList());
         fp.generateParserOutput(parser.getRoot());
         fp.generateErrorOutput();
-//        PcodeContainer.getInstance().printPcode();
+        PcodeContainer.getInstance().printPcode();
 //        System.out.println("--------Execute---------");
         PcodeExecutorVM.getInstance().startExecute();
         fp.generatePcodeResult(PcodeExecutorVM.getInstance().getExecuteResult());

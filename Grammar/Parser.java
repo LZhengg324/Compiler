@@ -175,7 +175,7 @@ public class Parser {
         } else {
             ConstExp constExp = parseConstExp();
             constInitVal.addChild(constExp);
-//            SymbolsManager.getInstance().addConstVarValue(constExp.getConstValue());
+            SymbolsManager.getInstance().addConstVarValue(constExp.getConstValue());
 //            PcodeContainer.getInstance().addPcode(new LIT(constExp.getConstValue()));
             constExp.loadPCode();
             PcodeContainer.getInstance().addPcode(new LIT(InitValCnt++));
@@ -624,10 +624,6 @@ public class Parser {
             } else {
                 ErrorHandler.addError(new Error(ErrorType.i, list.get(pos - 1).getLineNum()));
             }
-            String temp;
-            for (int i = 0; i < strcon.length(); i++) {
-
-            }
         } else if (curToken.getLexType().compareTo(LexType.LBRACE) == 0) {
             SymbolsManager.getInstance().addBlock();
             PcodeContainer.getInstance().addPcode(new BLKS());
@@ -1000,7 +996,6 @@ public class Parser {
         while (curToken.getLexType().compareTo(LexType.LBRACK) == 0) {
             node.addChild(setLeafNode());   //'['
             ConstExp constExp = parseConstExp();
-            //constExp.loadPCode();
             node.addChild(constExp);
             symbol.addDimension(constExp.getConstValue());
             if (LexTypeEqual(LexType.RBRACK)) {
