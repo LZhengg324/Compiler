@@ -1,0 +1,11 @@
+int r = 4
+int a() {
+    return 1 + 2 + 3 + r;
+}
+
+int main() {
+    int b;
+    b = a() + 7
+        printf("%d", b);
+    return 0;
+}
